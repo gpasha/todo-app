@@ -1,0 +1,37 @@
+// Prisma Schema для TODO Service
+// Database: PostgreSQL 16
+
+generator client {
+  provider = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enum для приоритета задач
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+// Основная модель Todo
+model Todo {
+  id          String    @id @default(uuid())
+  title       String    @db.VarChar(255)
+  description String?   @db.Text
+  completed   Boolean   @default(false)
+  priority    Priority  @default(MEDIUM)
+  dueDate     DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Индексы для оптимизации запросов
+  @@index([completed])
+  @@index([createdAt])
+  @@index([priority])
+  @@map("todos")
+}

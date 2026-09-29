@@ -1,0 +1,87 @@
+# Docker Compose конфигурация для Development окружения
+# Поддержка Hot Reload для Frontend и Backend
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: todo_postgres_dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-todouser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-todopass}
+      POSTGRES_DB: ${POSTGRES_DB:-tododb}
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-todouser}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend NestJS API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: todo_backend_dev
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-todouser}:${POSTGRES_PASSWORD:-todopass}@postgres:5432/${POSTGRES_DB:-tododb}?schema=public
+    ports:
+      - "${BACKEND_PORT:-3000}:3000"
+    volumes:
+      # Монтирование кода для Hot Reload
+      - ./backend:/app
+      # Исключаем node_modules из монтирования (используем из контейнера)
+      - /app/node_modules
+      # Исключаем dist (артефакты сборки)
+      - /app/dist
+    networks:
+      - app-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # Дополнительная команда для автоматического запуска миграций в dev
+    # command: sh -c "npx prisma migrate dev && npm run start:dev"
+
+  # Frontend React + Vite
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: todo_frontend_dev
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      VITE_API_BASE_URL: http://localhost:${BACKEND_PORT:-3000}
+    ports:
+      - "${FRONTEND_PORT:-5173}:5173"
+    volumes:
+      # Монтирование кода для Hot Reload
+      - ./frontend:/app
+      # Исключаем node_modules
+      - /app/node_modules
+    networks:
+      - app-network
+    depends_on:
+      - backend
+    stdin_open: true
+    tty: true
+
+# Именованные volumes для персистентности данных
+volumes:
+  postgres_dev_data:
+    name: todo_postgres_dev_data
+
+# Изолированная сеть для контейнеров
+networks:
+  app-network:
+    name: todo_app_network_dev
+    driver: bridge

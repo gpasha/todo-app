@@ -1,0 +1,25 @@
+# Frontend Dockerfile для Development окружения
+# React + Vite с Hot Module Replacement (HMR)
+
+FROM node:20-alpine
+
+# Установка рабочей директории
+WORKDIR /app
+
+# Копирование файлов зависимостей
+COPY package*.json ./
+
+# Установка зависимостей
+# Используем npm install для dev, т.к. lock-файл может отсутствовать
+RUN npm install
+
+# Копирование остального кода
+# В runtime будет перезаписано volume для Hot Reload
+COPY . .
+
+# Экспозиция порта Vite dev-сервера
+EXPOSE 5173
+
+# Запуск Vite dev-сервера
+# --host 0.0.0.0 позволяет доступ извне контейнера
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]

@@ -1,0 +1,31 @@
+# Backend Dockerfile для Development окружения
+# Поддержка Hot Reload через volumes
+
+FROM node:20-alpine
+
+# Установка необходимых системных зависимостей
+RUN apk add --no-cache openssl
+
+# Установка рабочей директории
+WORKDIR /app
+
+# Копирование package.json и package-lock.json
+# Это делается отдельно для эффективного кеширования слоев Docker
+COPY package*.json ./
+
+# Установка всех зависимостей (включая dev-зависимости)
+# Используем npm install для dev, т.к. lock-файл может отсутствовать
+RUN npm install
+
+# Копирование остального кода
+# В runtime это будет перезаписано volume для Hot Reload
+COPY . .
+
+# Генерация Prisma Client (потребуется после добавления schema.prisma)
+# RUN npx prisma generate
+
+# Экспозиция порта NestJS
+EXPOSE 3000
+
+# Запуск в dev-режиме с watch mode
+CMD ["npm", "run", "start:dev"]
