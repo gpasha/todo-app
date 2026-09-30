@@ -20,6 +20,13 @@ fi
 
 DC="docker compose -f ${COMPOSE_FILE} ${COMPOSE_ENV_ARGS}"
 
+# Экспортируем переменные .env.dev в shell (нужны для сборки тестового DATABASE_URL)
+if [ -f "${ENV_FILE}" ]; then
+  set -a
+  . "./${ENV_FILE}"
+  set +a
+fi
+
 # Colors
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -48,6 +55,9 @@ print_help() {
   echo "  db-reset    - Reset database (⚠️  deletes all data)"
   echo "  install-be  - Install backend package"
   echo "  install-fe  - Install frontend package"
+  echo "  test-be     - Run backend unit tests (no database needed)"
+  echo "  test-e2e    - Run backend e2e tests (starts postgres-test, cleans it up)"
+  echo "  test-down   - Stop and remove the postgres-test container"
   echo "  rebuild     - Rebuild all containers (no cache)"
   echo "  clean       - Stop and remove everything (including volumes)"
   echo "  help        - Show this help"
@@ -165,6 +175,47 @@ case "$1" in
     $DC restart frontend
     ;;
     
+  test-be)
+    echo -e "${GREEN}🧪 Running backend unit tests...${NC}"
+    $DC exec -T backend npm test
+    ;;
+
+  test-e2e)
+    echo -e "${GREEN}🧪 Running backend e2e tests...${NC}"
+    TEST_DB="${POSTGRES_TEST_DB:-tododb_test}"
+    TEST_USER="${POSTGRES_USER:-todouser}"
+    TEST_PASS="${POSTGRES_PASSWORD:-todopass_dev_secret}"
+    TEST_URL="postgresql://${TEST_USER}:${TEST_PASS}@postgres-test:5432/${TEST_DB}?schema=public"
+    TEST_EXIT=0
+    # Гарантированно убираем контейнер при любом исходе (успех, падение, Ctrl+C)
+    cleanup_test_db() {
+      echo -e "${YELLOW}🧹 Removing postgres-test...${NC}"
+      $DC --profile test rm -sf postgres-test >/dev/null 2>&1 || true
+    }
+    trap cleanup_test_db EXIT
+    echo -e "${YELLOW}Starting postgres-test...${NC}"
+    $DC --profile test up -d postgres-test
+    echo -e "${YELLOW}Waiting for postgres-test to be healthy...${NC}"
+    for _ in $(seq 1 30); do
+      if [ "$(docker inspect -f '{{.State.Health.Status}}' todo_postgres_test 2>/dev/null)" = "healthy" ]; then
+        break
+      fi
+      sleep 2
+    done
+    if [ "$(docker inspect -f '{{.State.Health.Status}}' todo_postgres_test 2>/dev/null)" != "healthy" ]; then
+      echo -e "${RED}❌ postgres-test did not become healthy${NC}"
+      exit 1
+    fi
+    $DC exec -T -e DATABASE_URL="${TEST_URL}" backend npm run test:e2e -- --runInBand || TEST_EXIT=$?
+    exit "$TEST_EXIT"
+    ;;
+
+  test-down)
+    echo -e "${YELLOW}🛑 Stopping and removing postgres-test...${NC}"
+    $DC --profile test rm -sf postgres-test >/dev/null 2>&1 || true
+    echo -e "${GREEN}✅ postgres-test removed${NC}"
+    ;;
+
   rebuild)
     echo -e "${YELLOW}🔨 Rebuilding containers (no cache)...${NC}"
     $DC build --no-cache
