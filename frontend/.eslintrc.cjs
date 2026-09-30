@@ -18,4 +18,14 @@ module.exports = {
     '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
     'semi': ['error', 'never'],
   },
+  overrides: [
+    {
+      // shadcn/ui генерирует компоненты вместе с вариантами (buttonVariants, badgeVariants),
+      // это осознанное исключение для вендорного кода из registry
+      files: ['src/components/ui/**/*.tsx'],
+      rules: {
+        'react-refresh/only-export-components': 'off',
+      },
+    },
+  ],
 }
