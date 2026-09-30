@@ -6,7 +6,19 @@
 set -e
 
 COMPOSE_FILE="docker-compose.dev.yml"
-DC="docker compose -f ${COMPOSE_FILE}"
+ENV_FILE=".env.dev"
+
+# Подключаем .env.dev как env-file, если он существует
+# (файл в .gitignore, поэтому у нового окружения его может не быть)
+COMPOSE_ENV_ARGS=""
+if [ -f "${ENV_FILE}" ]; then
+  COMPOSE_ENV_ARGS="--env-file ${ENV_FILE}"
+else
+  echo -e "\033[1;33m⚠️  ${ENV_FILE} не найден, используются дефолты из ${COMPOSE_FILE}\033[0m" >&2
+  echo -e "\033[1;33m   Создайте его: cp .env.example .env.dev\033[0m" >&2
+fi
+
+DC="docker compose -f ${COMPOSE_FILE} ${COMPOSE_ENV_ARGS}"
 
 # Colors
 GREEN='\033[0;32m'

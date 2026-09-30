@@ -9,7 +9,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-todouser}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-todopass}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-todopass_dev_secret}
       POSTGRES_DB: ${POSTGRES_DB:-tododb}
     ports:
       - "${POSTGRES_PORT:-5433}:5432"
@@ -18,7 +18,9 @@ services:
     networks:
       - app-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-todouser}"]
+      # -d обязателен: без него pg_isready проверяет БД с именем пользователя
+      # и Postgres пишет FATAL: database "todouser" does not exist каждые 10s
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-todouser} -d ${POSTGRES_DB:-tododb}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -33,7 +35,7 @@ services:
     environment:
       NODE_ENV: development
       PORT: 3000
-      DATABASE_URL: postgresql://${POSTGRES_USER:-todouser}:${POSTGRES_PASSWORD:-todopass}@postgres:5432/${POSTGRES_DB:-tododb}?schema=public
+      DATABASE_URL: postgresql://${POSTGRES_USER:-todouser}:${POSTGRES_PASSWORD:-todopass_dev_secret}@postgres:5432/${POSTGRES_DB:-tododb}?schema=public
     ports:
       - "${BACKEND_PORT:-3000}:3000"
     volumes:

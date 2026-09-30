@@ -21,8 +21,8 @@ RUN npm install
 # В runtime это будет перезаписано volume для Hot Reload
 COPY . .
 
-# Генерация Prisma Client (потребуется после добавления schema.prisma)
-# RUN npx prisma generate
+# Генерация Prisma Client
+RUN npx prisma generate
 
 # Экспозиция порта NestJS
 EXPOSE 3000
